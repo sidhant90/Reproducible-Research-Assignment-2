@@ -1,0 +1,169 @@
+---
+title: 'Coursera Reproducible Research: Course Project 2'
+author: "Sidhant Gupta"
+date: "30/05/2020"
+output: html_document
+---
+## Impact of Severe Weather Events on Public Health and Economy in the United States
+
+### Synonpsis  
+In this report, we aim to analyze the impact of different weather events on public health and economy based on the storm database collected from the U.S. National Oceanic and Atmospheric Administration's (NOAA) from 1950 - 2011. We will use the estimates of fatalities, injuries, property and crop damage to decide which types of event are most harmful to the population health and economy. From these data, we found that excessive heat and tornado are most harmful with respect to population health, while flood, drought, and hurricane/typhoon have the greatest economic consequences.
+
+### Basic settings
+```{r}
+getwd()
+library(knitr)
+library(markdown)
+library(rmarkdown)
+library(plyr)
+library(stats)
+```
+
+### Data Processing
+Loading NOAA data into R
+```{r}
+storm <- read.csv(file = "StormData.csv", header = TRUE, sep = ",")
+dim(storm)
+names(storm)
+str(storm)
+```
+Defining variables that will be used:
+
+EVTYPE: Event Type (Tornados, Flood, ….)
+
+FATALITIES: Number of Fatalities
+
+INJURIES: Number of Injuries
+
+PROGDMG: Property Damage
+
+PROPDMGEXP: Units for Property Damage (magnitudes - K,B,M)
+
+CROPDMG: Crop Damage
+
+CROPDMGEXP: Units for Crop Damage (magnitudes - K,BM,B)
+```{r}
+varsNedeed <- c("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
+storm <- storm[varsNedeed]
+dim(storm)
+names(storm)
+str(storm)
+```
+
+Refactor of variable PROPDNGEXP
+```{r}
+unique(storm$PROPDMGEXP)
+storm$PROPDMGEXP <- mapvalues(storm$PROPDMGEXP, from = c("K", "M","", "B", "m", "+", "0", "5", "6", "?", "4", "2", "3", "h", "7", "H", "-", "1", "8"), to = c(10^3, 10^6, 1, 10^9, 10^6, 0,1,10^5, 10^6, 0, 10^4, 10^2, 10^3, 10^2, 10^7, 10^2, 0, 10, 10^8))
+storm$PROPDMGEXP <- as.numeric(as.character(storm$PROPDMGEXP))
+storm$PROPDMGTOTAL <- (storm$PROPDMG * storm$PROPDMGEXP)/1000000000
+```  
+
+Refactor of variable CROPDMGEXP variable
+```{r}
+unique(storm$CROPDMGEXP)
+storm$CROPDMGEXP <- mapvalues(storm$CROPDMGEXP, from = c("","M", "K", "m", "B", "?", "0", "k","2"), to = c(1,10^6, 10^3, 10^6, 10^9, 0, 1, 10^3, 10^2))
+storm$CROPDMGEXP <- as.numeric(as.character(storm$CROPDMGEXP))
+storm$CROPDMGTOTAL <- (storm$CROPDMG * storm$CROPDMGEXP)/1000000000
+```
+
+#### Processing Data for Analysis
+To determine which type of events are most harmful to the population health we must look at the variables fatalities and Injuries.
+
+Fatalities
+```{r}
+sumFatalities <- aggregate(FATALITIES ~ EVTYPE, data = storm,  FUN="sum")
+dim(sumFatalities)  ## 985 observations
+```
+
+Ordering Number of Fatalities and defining the top 10 Weather events
+```{r}
+fatalities10events <- sumFatalities[order(-sumFatalities$FATALITIES), ][1:10, ]
+dim(fatalities10events)
+fatalities10events
+```
+
+BarPlot of the 10 Fatalities Events most harmful to population Health.
+```{r}
+par(mfrow = c(1,1), mar = c(12, 4, 3, 2), mgp = c(3, 1, 0), cex = 0.8)
+barplot(fatalities10events$FATALITIES, names.arg = fatalities10events$EVTYPE, las = 3, main = "10 Fatalities Highest Events", ylab = "Number of Fatalities")
+dev.copy(png, "fatalities-events.png", width = 480, height = 480)
+dev.off()
+```
+
+Injuries
+```{r}
+sumInjuries <- aggregate(INJURIES ~ EVTYPE, data = storm,  FUN="sum")
+dim(sumInjuries)  ## 985 observations
+```
+
+Ordering Number of INJURIES and defining the top 10 Weather events in this category
+```{r}
+injuries10events <- sumInjuries[order(-sumInjuries$INJURIES), ][1:10, ]
+dim(injuries10events)
+injuries10events
+```
+
+BarPlot of the 10 INJURIES Events most harmful to population Health.
+```{r}
+par(mfrow = c(1,1), mar = c(12, 6, 3, 2), mgp = c(4, 1, 0), cex = 0.8)
+barplot(injuries10events$INJURIES, names.arg = injuries10events$EVTYPE, las = 3, main = "10 Injuries Highest Events", ylab = "Number of Injuries")
+dev.copy(png, "injuries-events.png", width = 480, height = 480)
+dev.off()
+```
+
+#### Impact on Economy
+To determine which type of events have the greatest econimic consequences the variables, PROPDMG (Property Damage) and CROPDMG (Crop Damage) have to be taken into consideration.
+
+Property Damage
+Calculation of property damage
+```{r}
+sumPropertyDamage <- aggregate(PROPDMGTOTAL ~ EVTYPE, data = storm,  FUN="sum")
+dim(sumPropertyDamage)  ## 985 observations
+```
+
+Top 10 highest Property damage Events
+```{r}
+propdmg10Total <- sumPropertyDamage[order(-sumPropertyDamage$PROPDMGTOTAL), ][1:10, ]
+propdmg10Total
+```
+
+BarPlot of the top 10 events most harmful to population economic.
+```{r}
+par(mfrow = c(1,1), mar = c(12, 6, 3, 2), mgp = c(3, 1, 0), cex = 0.8)
+barplot(propdmg10Total$PROPDMGTOTAL, names.arg = propdmg10Total$EVTYPE, las = 3, main = "10 Property Damages Highest Events", ylab = "Damage Property Values (in Billions)")
+dev.copy(png, "propdmg-total.png", width = 480, height = 480)
+dev.off()
+```
+
+Crop Damage
+calculation of crop damage
+```{r}
+sumCropDamage <- aggregate(CROPDMGTOTAL ~ EVTYPE, data = storm,  FUN="sum")
+dim(sumCropDamage) ## 985 observations
+```
+
+Top 10 highest crop damage events
+```{r}
+cropdmg10Total <- sumCropDamage[order(-sumCropDamage$CROPDMGTOTAL), ][1:10, ]
+cropdmg10Total
+```
+
+BarPlot of the 10 Crop Damage Events most harmful to population economic.
+```{r}
+par(mfrow = c(1,1), mar = c(10, 6, 3, 2), mgp = c(3, 1, 0), cex = 0.6)
+barplot(cropdmg10Total$CROPDMGTOTAL, names.arg = cropdmg10Total$EVTYPE, las = 2, main = "10 Crop Damages Highest Events", ylab = "Damage Crop Values (in Billions) ")
+dev.copy(png, "cropdmg-total.png", width = 480, height = 480)
+dev.off()
+```
+
+### Results
+Question 1
+The results tells us that Tornados causes the highest number of Fatalities and Injuries.
+
+Question 2
+The results tells us that Floods causes highest Property Damage.
+
+The results tells us that Droughts causes highest Crop damages.
+
+### Conclusion  
+From these data, we found that **tornado** are most harmful with respect to population health, while **flood** and **drought** have the greatest economic consequences.
